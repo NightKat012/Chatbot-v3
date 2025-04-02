@@ -2,548 +2,744 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dossier Interface // Codename: Chronos</title>
-  <style>
-    /* CSS Reset & Base */
-    *, *::before, *::after {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Chatbot - AlexBot</title>
+    <style>
+        /* Global Styles & Variables */
+        :root {
+            --primary-color: #007bff; /* Teal/Blue variant */
+            --secondary-color: #6c757d; /* Gray */
+            --user-bubble-bg: #e7f5ff;
+            --bot-bubble-bg: #f8f9fa;
+            --background-start: #f0f4f8;
+            --background-end: #d9e2ec;
+            --text-color: #333;
+            --timestamp-color: #888;
+            --white-color: #fff;
+            --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            --border-radius: 15px;
+            --bubble-padding: 10px 15px;
+            --container-padding: 20px;
+            --input-height: 50px;
+        }
 
-    :root {
-      /* Dark Theme (Default) */
-      --bg-primary: #0d0f12; /* Deep black-blue */
-      --bg-secondary: #1a1c20; /* Dark panel */
-      --text-primary: #0f0; /* Bright green */
-      --text-secondary: #9f9; /* Lighter green */
-      --accent-primary: #0f0; /* Green accent */
-      --accent-secondary: #0a0; /* Darker green */
-      --border-color: #2f2; /* Green border */
-      --shadow-color: rgba(0, 255, 0, 0.5); /* Green glow */
-      --tab-inactive-bg: #1f1f1f;
-      --tab-active-bg: var(--accent-primary);
-      --tab-active-text: var(--bg-primary);
-      --scrollbar-thumb: var(--accent-secondary);
-      --scrollbar-track: var(--bg-secondary);
-      --scanline-opacity: 0.08;
-      --transition-speed: 0.4s;
-    }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-    /* Hidden Inputs - Positioned off-screen but accessible */
-    .hidden-input {
-      position: absolute;
-      opacity: 0;
-      width: 1px;
-      height: 1px;
-      margin: -1px;
-      padding: 0;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      border: 0;
-      pointer-events: none; /* Important for labels to work */
-    }
+        html, body {
+            height: 100%;
+            overflow: hidden; /* Prevent body scroll */
+            font-family: var(--font-stack);
+            color: var(--text-color);
+        }
 
-    body {
-      font-family: 'Consolas', 'Monaco', 'Lucida Console', monospace;
-      background-color: #000; /* Fallback */
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      min-height: 100vh;
-      padding: 20px;
-      overflow: hidden; /* Hide body scrollbars if interface takes full screen */
-    }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, var(--background-start), var(--background-end));
+            animation: gradientShift 15s ease infinite alternate;
+            position: relative; /* For particle container */
+        }
 
-    /* Main Interface Container */
-    #dossier-interface {
-      width: 100%;
-      max-width: 1000px;
-      height: calc(100vh - 40px); /* Full viewport height minus padding */
-      max-height: 800px;
-      display: grid;
-      grid-template-rows: auto 1fr; /* Header row (tabs+toggle), Content row */
-      grid-template-columns: 1fr; /* Single column layout */
-      background-color: var(--bg-primary);
-      color: var(--text-primary);
-      border: 2px solid var(--border-color);
-      border-radius: 5px;
-      box-shadow: 0 0 15px var(--shadow-color), inset 0 0 10px rgba(0,0,0,0.5);
-      position: relative;
-      overflow: hidden; /* Contains scanlines and content */
-      transition:
-        background-color var(--transition-speed) ease,
-        color var(--transition-speed) ease,
-        border-color var(--transition-speed) ease,
-        box-shadow var(--transition-speed) ease;
-    }
+        /* Particle Background */
+        #particle-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 0;
+            pointer-events: none; /* Allow interaction with elements below */
+        }
 
-    /* --- Scanline & Flicker Effect --- */
-    #dossier-interface::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(to bottom, rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-        background-size: 100% 4px, 3px 100%;
-        z-index: 1;
-        pointer-events: none;
-        animation: scanline 10s linear infinite, flicker 0.05s infinite alternate;
-    }
+        .particle {
+            position: absolute;
+            background-color: rgba(0, 123, 255, 0.2); /* Semi-transparent primary color */
+            border-radius: 50%;
+            width: 5px;
+            height: 5px;
+            opacity: 0; /* Start invisible */
+            animation: moveParticle 20s linear infinite;
+        }
 
-    @keyframes scanline {
-      from { background-position: 0 0; }
-      to { background-position: 0 100%; }
-    }
-
-    @keyframes flicker {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.95; }
-    }
+        @keyframes moveParticle {
+            0%, 100% { transform: translate(0, 0); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)); opacity: 0; } /* Use CSS variables set by JS */
+        }
 
 
-    /* --- Header Area (Tabs + Theme Toggle) --- */
-    .header-area {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 15px;
-      background-color: var(--bg-secondary);
-      border-bottom: 1px solid var(--border-color);
-      position: relative;
-      z-index: 3; /* Above scanlines and content */
-      flex-wrap: wrap; /* Allow wrapping on small screens */
-    }
+        /* Chat Container */
+        #chat-container {
+            width: 90%;
+            max-width: 800px;
+            height: 90vh;
+            max-height: 700px;
+            background-color: var(--white-color);
+            border-radius: var(--border-radius);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Clip child content */
+            z-index: 1; /* Above particles */
+            position: relative; /* Ensure it's above the absolute positioned particles */
+        }
 
-    /* Tab Navigation */
-    .tabs {
-      display: flex;
-      gap: 5px;
-    }
+        /* Chat Window */
+        #chat-window {
+            flex-grow: 1;
+            padding: var(--container-padding);
+            overflow-y: auto;
+            scroll-behavior: smooth;
+            display: flex;
+            flex-direction: column;
+            gap: 15px; /* Space between messages */
+        }
 
-    .tab {
-      display: inline-block;
-      padding: 8px 15px;
-      background-color: var(--tab-inactive-bg);
-      color: var(--text-secondary);
-      border: 1px solid var(--accent-secondary);
-      border-bottom: none;
-      border-radius: 3px 3px 0 0;
-      cursor: pointer;
-      transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
-      user-select: none; /* Prevent text selection on click */
-      font-size: 0.9em;
-      position: relative; /* For potential ::before/::after indicators */
-    }
+        /* Message Bubbles */
+        .message {
+            max-width: 75%;
+            padding: var(--bubble-padding);
+            border-radius: var(--border-radius);
+            word-wrap: break-word;
+            opacity: 0;
+            transform: translateY(10px);
+            animation: fadeInUp 0.5s ease forwards;
+            display: flex;
+            flex-direction: column;
+        }
 
-    .tab:hover {
-      background-color: var(--accent-secondary);
-      color: var(--bg-primary);
-      text-shadow: 0 0 3px var(--bg-primary);
-    }
+        .user-message {
+            align-self: flex-start;
+            background-color: var(--user-bubble-bg);
+            border-bottom-left-radius: 5px; /* Subtle shape difference */
+            color: #0056b3; /* Darker blue text for contrast */
+        }
 
-    /* --- Theme Toggle --- */
-    .theme-toggle {
-      display: inline-block;
-      padding: 6px 12px;
-      border: 1px solid var(--accent-primary);
-      border-radius: 3px;
-      cursor: pointer;
-      font-size: 0.8em;
-      color: var(--accent-primary);
-      background-color: transparent;
-      transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
-      user-select: none;
-      margin-left: auto; /* Push to the right */
-    }
+        .bot-message {
+            align-self: flex-end;
+            background-color: var(--bot-bubble-bg);
+            border-bottom-right-radius: 5px; /* Subtle shape difference */
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
 
-    .theme-toggle:hover {
-      background-color: var(--accent-primary);
-      color: var(--bg-primary);
-    }
+        .message-content {
+            margin-bottom: 5px;
+        }
 
-    .theme-toggle::before {
-      content: "[";
-      margin-right: 3px;
-      opacity: 0.7;
-    }
-    .theme-toggle::after {
-      content: "]";
-      margin-left: 3px;
-      opacity: 0.7;
-    }
-
-    /* Theme Toggle State Text (Using adjacent sibling) */
-    #toggle-theme:not(:checked) + #dossier-interface .theme-toggle .theme-label::after {
-        content: "LIGHT MODE";
-    }
-    #toggle-theme:checked + #dossier-interface .theme-toggle .theme-label::after {
-        content: "DARK MODE";
-    }
-
-
-    /* --- Content Area --- */
-    .content {
-      padding: 20px;
-      overflow-y: auto; /* Enable scrolling for content */
-      position: relative;
-      z-index: 2; /* Above scanlines but below header */
-      /* Custom Scrollbar */
-      scrollbar-width: thin;
-      scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
-    }
-
-    .content::-webkit-scrollbar {
-      width: 8px;
-    }
-    .content::-webkit-scrollbar-track {
-      background: var(--scrollbar-track);
-      border-radius: 4px;
-    }
-    .content::-webkit-scrollbar-thumb {
-      background-color: var(--scrollbar-thumb);
-      border-radius: 4px;
-      border: 1px solid var(--bg-secondary);
-    }
-
-    /* Section Styling */
-    .section {
-      display: none; /* Hide all sections by default */
-      opacity: 0;
-      animation: fadeIn 0.6s ease forwards;
-      text-shadow: 0 0 3px var(--shadow-color); /* Apply glow */
-    }
-
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(15px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .section h2 {
-      color: var(--accent-primary);
-      border-bottom: 1px dashed var(--accent-secondary);
-      padding-bottom: 5px;
-      margin-bottom: 15px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .section p, .section li, .section div {
-      margin-bottom: 10px;
-      line-height: 1.6;
-      color: var(--text-secondary); /* Use secondary text color for less emphasis */
-    }
-    .section strong {
-        color: var(--text-primary); /* Highlight key terms */
-    }
-
-    /* --- Tab Switching Logic --- */
-    #tab-profile:checked ~ #dossier-interface .content .profile,
-    #tab-logs:checked ~ #dossier-interface .content .logs,
-    #tab-evidence:checked ~ #dossier-interface .content .evidence,
-    #tab-settings:checked ~ #dossier-interface .content .settings {
-      display: block; /* Show the active section */
-    }
-
-    /* Highlight Active Tab */
-    #tab-profile:checked ~ #dossier-interface .header-area .tabs label[for="tab-profile"],
-    #tab-logs:checked ~ #dossier-interface .header-area .tabs label[for="tab-logs"],
-    #tab-evidence:checked ~ #dossier-interface .header-area .tabs label[for="tab-evidence"],
-    #tab-settings:checked ~ #dossier-interface .header-area .tabs label[for="tab-settings"] {
-      background-color: var(--tab-active-bg);
-      color: var(--tab-active-text);
-      border-color: var(--accent-primary);
-      font-weight: bold;
-      text-shadow: none;
-    }
-
-    /* --- Collapsible Log Entries (<details>) --- */
-    details {
-      background-color: rgba(0, 255, 0, 0.05); /* Subtle background */
-      border: 1px solid var(--accent-secondary);
-      border-radius: 3px;
-      margin-bottom: 10px;
-      transition: background-color var(--transition-speed) ease;
-    }
-
-    details[open] {
-       background-color: rgba(0, 255, 0, 0.1);
-    }
-
-    summary {
-      padding: 10px 15px;
-      cursor: pointer;
-      color: var(--text-primary);
-      font-weight: bold;
-      list-style: none; /* Remove default marker */
-      position: relative;
-      transition: background-color var(--transition-speed) ease;
-    }
-
-    summary::-webkit-details-marker { display: none; } /* Hide marker in WebKit */
-    summary::marker { display: none; } /* Hide marker in Firefox */
-
-    summary::before {
-      content: '+'; /* Collapsed state indicator */
-      display: inline-block;
-      width: 1em;
-      margin-right: 8px;
-      font-weight: bold;
-      color: var(--accent-primary);
-      transition: transform 0.2s ease-in-out;
-    }
-
-    details[open] > summary::before {
-      content: '-'; /* Expanded state indicator */
-      transform: rotate(90deg);
-    }
-
-    details > div { /* Content wrapper inside details */
-      padding: 0 15px 15px 15px;
-      border-top: 1px dashed var(--accent-secondary);
-      margin-top: 10px;
-      overflow: hidden; /* Needed for smooth-ish animation */
-    }
-
-    /* Add a simple fade-in for details content */
-    details > div {
-        animation: fadeInDetails 0.5s ease-out;
-    }
-
-    @keyframes fadeInDetails {
-        from { opacity: 0; max-height: 0; }
-        to { opacity: 1; max-height: 500px; } /* Adjust max-height as needed */
-    }
-
-
-    /* --- Theme Switching Logic --- */
-    #toggle-theme:checked + #dossier-interface {
-      /* Light Theme Variables */
-      --bg-primary: #f0f4f8; /* Light grey-blue */
-      --bg-secondary: #ffffff; /* White panel */
-      --text-primary: #1a1f3a; /* Dark blue */
-      --text-secondary: #4a4f6a; /* Medium grey-blue */
-      --accent-primary: #0056b3; /* Standard blue */
-      --accent-secondary: #003d80; /* Darker blue */
-      --border-color: #a0b0c0; /* Grey border */
-      --shadow-color: rgba(0, 86, 179, 0.3); /* Blue glow */
-      --tab-inactive-bg: #e0e4e8;
-      --scanline-opacity: 0.02; /* Much lighter scanline */
-      text-shadow: none; /* Remove text glow in light mode */
-    }
-    #toggle-theme:checked + #dossier-interface .section {
-        text-shadow: none; /* Ensure section text glow is also removed */
-    }
-
-    /* --- Responsive Design --- */
-    @media (max-width: 768px) {
-      body {
-        padding: 10px; /* Less padding on small screens */
-      }
-      #dossier-interface {
-        height: calc(100vh - 20px);
-        max-height: none; /* Allow full height */
-        grid-template-rows: auto auto 1fr; /* Header, Tabs, Content */
-      }
-      .header-area {
-          flex-direction: column;
-          align-items: flex-start; /* Align items to start */
-          padding-bottom: 0; /* Remove bottom padding as tabs are separate now */
-      }
-      .tabs {
-          order: 2; /* Move tabs below toggle */
-          width: 100%;
-          padding-top: 10px; /* Space between toggle and tabs */
-          border-top: 1px solid var(--border-color);
-          margin-top: 10px;
-          justify-content: space-around; /* Distribute tabs */
-      }
-      .tab {
-          flex-grow: 1; /* Make tabs fill width */
-          text-align: center;
-          font-size: 0.85em;
-          padding: 10px 5px;
-      }
-      .theme-toggle {
-          order: 1; /* Keep toggle at top */
-          margin-left: 0; /* Reset margin */
-          align-self: flex-end; /* Push to right */
-          margin-bottom: 10px; /* Space below toggle */
-      }
-       .content {
-           padding: 15px;
-       }
-       .section h2 {
-           font-size: 1.1em;
-       }
-       .section p, .section li, .section div {
-           font-size: 0.9em;
-       }
-    }
-
-     @media (max-width: 480px) {
-        .tab {
+        .timestamp {
             font-size: 0.75em;
-            padding: 8px 3px;
+            color: var(--timestamp-color);
+            align-self: flex-end; /* Align timestamp to the right within the bubble */
+            margin-top: 5px;
         }
-        .theme-toggle {
-            font-size: 0.7em;
-            padding: 5px 8px;
-        }
-        .content {
-            padding: 10px;
-        }
-        details {
-            margin-bottom: 8px;
-        }
-        summary {
-            padding: 8px 10px;
-            font-size: 0.9em;
-        }
-        details > div {
-            padding: 0 10px 10px 10px;
-            margin-top: 8px;
-        }
-     }
 
-  </style>
+        .user-message .timestamp {
+            align-self: flex-start; /* Align user timestamp left */
+        }
+
+        /* Typing Indicator */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            padding: 10px 0; /* Match bubble vertical padding */
+            margin-left: 5px; /* Align with bot message potentially */
+            align-self: flex-end; /* Should appear on bot side */
+        }
+
+        .typing-indicator span {
+             font-style: italic;
+             color: var(--timestamp-color);
+             margin-right: 8px;
+             font-size: 0.9em;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--secondary-color);
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 2px;
+            animation: bounce 1.2s infinite ease-in-out;
+        }
+
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-6px); }
+        }
+
+        /* Typing Cursor in Bot Message */
+        .typing-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background-color: var(--text-color);
+            margin-left: 3px;
+            animation: blink 1s step-end infinite;
+            vertical-align: bottom; /* Align with text baseline */
+        }
+
+        @keyframes blink {
+            from, to { background-color: transparent; }
+            50% { background-color: var(--text-color); }
+        }
+
+        /* Input Area */
+        #input-area {
+            display: flex;
+            align-items: flex-end; /* Align items to bottom for textarea growth */
+            padding: 15px var(--container-padding);
+            border-top: 1px solid #eee;
+            background-color: #fdfdfd;
+        }
+
+        #user-input {
+            flex-grow: 1;
+            min-height: calc(var(--input-height) - 20px); /* Base height */
+            max-height: 150px; /* Limit growth */
+            padding: 10px 15px;
+            border: 1px solid #ccc;
+            border-radius: calc(var(--border-radius) / 1.5);
+            resize: none; /* Disable manual resize */
+            overflow-y: auto; /* Scroll if max-height exceeded */
+            font-family: var(--font-stack);
+            font-size: 1em;
+            line-height: 1.4;
+            margin-right: 10px;
+            transition: border-color 0.3s ease;
+        }
+
+        #user-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        #send-button {
+            height: var(--input-height); /* Match potential max height of textarea row */
+            padding: 0 20px;
+            background-color: var(--primary-color);
+            color: var(--white-color);
+            border: none;
+            border-radius: calc(var(--border-radius) / 1.5);
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            flex-shrink: 0; /* Prevent button shrinking */
+        }
+
+        #send-button:hover {
+            background-color: #0056b3; /* Darker shade */
+            transform: scale(1.05);
+        }
+
+        #send-button:disabled {
+            background-color: #a0cfff;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Feedback Buttons */
+        .feedback-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            align-self: flex-end; /* Align with bot message */
+            animation: fadeInUp 0.5s ease forwards; /* Reuse animation */
+            opacity: 0; /* Start hidden for animation */
+            animation-delay: 0.3s; /* Appear slightly after message */
+        }
+
+        .feedback-button {
+            padding: 5px 12px;
+            border: 1px solid var(--primary-color);
+            background-color: var(--white-color);
+            color: var(--primary-color);
+            border-radius: 20px; /* Pill shape */
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .feedback-button:hover {
+            background-color: var(--primary-color);
+            color: var(--white-color);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(15px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes gradientShift {
+            from { background-position: 0% 50%; }
+            to { background-position: 100% 50%; }
+        }
+        body {
+           background-size: 200% 200%; /* Needed for gradient animation */
+        }
+
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            :root {
+                --container-padding: 15px;
+                --bubble-padding: 8px 12px;
+            }
+
+            #chat-container {
+                width: 100%;
+                height: 100%;
+                max-height: none;
+                border-radius: 0;
+                box-shadow: none;
+            }
+
+            .message {
+                max-width: 85%;
+            }
+
+            #input-area {
+                padding: 10px;
+            }
+
+            #user-input {
+                margin-right: 8px;
+            }
+
+            #send-button {
+                padding: 0 15px;
+                height: calc(var(--input-height) - 5px);
+            }
+        }
+
+        /* Accessibility Focus */
+        :focus-visible {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+        #user-input:focus-visible {
+             outline: none; /* Use border color change instead */
+        }
+
+    </style>
 </head>
 <body>
+    <div id="particle-container"></div>
 
-  <!-- Hidden Inputs for State Management -->
-  <input type="radio" name="section" id="tab-profile" class="hidden-input" checked>
-  <input type="radio" name="section" id="tab-logs" class="hidden-input">
-  <input type="radio" name="section" id="tab-evidence" class="hidden-input">
-  <input type="radio" name="section" id="tab-settings" class="hidden-input">
-  <input type="checkbox" id="toggle-theme" class="hidden-input">
-
-  <!-- Dossier Interface -->
-  <div id="dossier-interface">
-
-    <!-- Header: Contains Tabs and Theme Toggle -->
-    <div class="header-area">
-      <nav class="tabs">
-        <label for="tab-profile" class="tab">Profile</label>
-        <label for="tab-logs" class="tab">Logs</label>
-        <label for="tab-evidence" class="tab">Evidence</label>
-        <label for="tab-settings" class="tab">Settings</label>
-      </nav>
-
-      <label for="toggle-theme" class="theme-toggle">
-        <span class="theme-label"> <!-- Span to target text content change --></span>
-      </label>
+    <div id="chat-container">
+        <div id="chat-window" role="log" aria-live="polite">
+            <!-- Chat messages will be appended here -->
+        </div>
+        <div id="input-area">
+            <textarea id="user-input" placeholder="Type your message..." rows="1" aria-label="Chat input"></textarea>
+            <button id="send-button" aria-label="Send message">Send</button>
+        </div>
     </div>
 
-    <!-- Main Content Area -->
-    <div class="content">
+    <script>
+        const chatWindow = document.getElementById('chat-window');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const particleContainer = document.getElementById('particle-container');
 
-      <!-- Profile Section -->
-      <section id="profile" class="section profile">
-        <h2>Agent Profile</h2>
-        <p><strong>Agent ID:</strong> RX-789 "Specter"</p>
-        <p><strong>Assigned Name:</strong> Riley Carter</p>
-        <p><strong>Security Clearance:</strong> Level 5 (Omega Protocol)</p>
-        <p><strong>Affiliation:</strong> Chronos Division</p>
-        <p><strong>Date Activated:</strong> March 15, 2023</p>
-        <p><strong>Current Base:</strong> Undisclosed (Mobile Unit 'Tempus')</p>
-        <p><strong>Status:</strong> <span style="color: #0f0;">ACTIVE</span></p>
-        <p><strong>Primary Skills:</strong> Temporal Anomaly Analysis, Covert Operations, Data Encryption/Decryption</p>
-        <p><strong>Last Sync:</strong> April 01, 2025 - 08:00 ZULU</p>
-      </section>
+        const botName = "AlexBot";
+        let isBotTyping = false;
+        let conversationContext = []; // Store last few messages {sender, text}
 
-      <!-- Logs Section -->
-      <section id="logs" class="section logs">
-        <h2>Operational Logs</h2>
-        <details>
-          <summary>Log Entry #073 - 04/01/2025 // 07:45 ZULU</summary>
-          <div>
-            <p><strong>Subject:</strong> Mission 'Echo Bloom' - Phase 1 Initiation</p>
-            <p>Infiltrated designated nexus point identified as 'Old Library'. Minimal temporal displacement detected upon entry. Ambient chroniton levels nominal. Initial sensor sweep indicates target artifact is nearby. Proceeding with caution.</p>
-            <p><em>Analyst Note: Cross-reference library blueprints with known temporal weak points.</em></p>
-          </div>
-        </details>
-        <details>
-          <summary>Log Entry #072 - 03/31/2025 // 18:20 ZULU</summary>
-          <div>
-            <p><strong>Subject:</strong> Pre-Mission Briefing - 'Echo Bloom'</p>
-            <p>Received final parameters for Operation Echo Bloom. Objective: Secure anomalous artifact exhibiting localized time dilation effects. Potential hostiles: Unknown temporal entity designated 'The Curator'. Extraction window: 12 hours post-insertion.</p>
-            <p><em>Equipment Check: Chroniton Stabilizer - Calibrated. Stealth Field - Optimal. Emergency Temporal Beacon - Armed.</em></p>
-          </div>
-        </details>
-         <details>
-          <summary>Log Entry #071 - 03/28/2025 // 11:00 ZULU</summary>
-          <div>
-            <p><strong>Subject:</strong> Anomaly Analysis - Sector Gamma</p>
-            <p>Processed sensor data from Sector Gamma drone sweep. Detected faint temporal signature matching profile of 'Echo Bloom' target. Signature origin triangulated to coordinates [REDACTED]. Recommend immediate reconnaissance.</p>
-            <p><em>Risk Assessment: Moderate. Probability of temporal feedback loop: 15%.</em></p>
-          </div>
-        </details>
-        <details>
-          <summary>Log Entry #070 - 03/25/2025 // 09:30 ZULU</summary>
-          <div>
-            <p><strong>Subject:</strong> Equipment Maintenance</p>
-            <p>Routine diagnostic and maintenance performed on Mobile Unit 'Tempus' systems. Temporal drive recalibrated. Cloaking systems optimized. All systems green.</p>
-          </div>
-        </details>
-      </section>
+        // Response Pools
+        const responses = {
+            greetings: [
+                "Hey there! How can I assist you today?",
+                "Hi! What's on your mind?",
+                "Hello, friend! Ready to chat?",
+                "Greetings! I'm here to help."
+            ],
+            farewell: [
+                "Catch you later!",
+                "Bye for now! Feel free to return anytime.",
+                "Take care! Have a great day.",
+                "Goodbye! It was nice chatting."
+            ],
+            help: [
+                "I can chat about various topics. Try asking me something!",
+                "Just type your questions or statements, and I'll do my best to respond.",
+                "Need assistance? Tell me what you're looking for.",
+                "I'm a simple chatbot. You can say 'hello', 'bye', or ask simple questions."
+            ],
+            feedback_yes: [
+                "Great! Glad I could help.",
+                "Awesome! I'm getting good at this.",
+                "Excellent! What else can I do for you?",
+                "Perfect! Let me know if there's anything else."
+            ],
+            feedback_no: [
+                "Ah, okay. Could you please rephrase or provide more detail?",
+                "My apologies. What did I misunderstand?",
+                "Hmm, I see. Can you explain what you were looking for?",
+                "Sorry about that. Please tell me more so I can improve."
+            ],
+            default: [
+                "Interesting! Tell me more.",
+                "Hmm, I understand.",
+                "That's quite fascinating.",
+                "Got it. What else?",
+                "Okay, processing that...",
+                "Let me think about that for a moment."
+            ]
+        };
 
-      <!-- Evidence Section -->
-      <section id="evidence" class="section evidence">
-        <h2>Collected Evidence / Artifacts</h2>
-        <div>
-            <p><strong>Item ID:</strong> EV-042a</p>
-            <p><strong>Designation:</strong> Tarnished Pocket Watch</p>
-            <p><strong>Date Acquired:</strong> March 18, 2024</p>
-            <p><strong>Origin Sector:</strong> Alpha-Prime (Victorian Era Anomaly)</p>
-            <p><strong>Notes:</strong> Emits faint chroniton radiation. Hands frozen at 11:58. Casing shows unusual metallurgical composition. Currently secured in stasis field.</p>
-        </div>
-        <hr style="border: 0; border-top: 1px dashed var(--accent-secondary); margin: 15px 0;">
-        <div>
-            <p><strong>Item ID:</strong> EV-031b</p>
-            <p><strong>Designation:</strong> Coded Datapad Fragment</p>
-            <p><strong>Date Acquired:</strong> January 05, 2025</p>
-            <p><strong>Origin Sector:</strong> Neo-Kyoto Arcology (2142 Anomaly)</p>
-            <p><strong>Notes:</strong> Fragment recovered from rogue AI core. Partial decryption revealed references to 'The Curator' and 'Temporal Weaving'. Encryption level exceeds standard protocols. Further analysis required.</p>
-        </div>
-         <hr style="border: 0; border-top: 1px dashed var(--accent-secondary); margin: 15px 0;">
-        <div>
-            <p><strong>Item ID:</strong> EV-045c</p>
-            <p><strong>Designation:</strong> Fossilized Leaf (Unknown Species)</p>
-            <p><strong>Date Acquired:</strong> February 22, 2025</p>
-            <p><strong>Origin Sector:</strong> Prehistoric Anomaly (Designation 'Eden Prime')</p>
-            <p><strong>Notes:</strong> Exhibits minor temporal displacement properties. Cellular structure appears stable despite age paradox. Potential link to 'Echo Bloom' artifact. Biological analysis pending.</p>
-        </div>
-      </section>
+        // --- Core Functions ---
 
-      <!-- Settings Section -->
-      <section id="settings" class="section settings">
-        <h2>Interface Settings</h2>
-        <p><strong>Display Mode:</strong> Standard // Tactical Overlay [INACTIVE]</p>
-        <p><strong>Data Stream Filter:</strong> Chronos Division // All Sources [RESTRICTED]</p>
-        <p><strong>Audio Feedback:</strong> Enabled // <label style="cursor: pointer; text-decoration: underline;">Disable</label></p>
-        <p><strong>Visual Theme:</strong> Current: <span id="theme-indicator">Auto</span> (Use Toggle)</p>
-        <p><strong>Security Protocol:</strong> Omega Active</p>
-        <p><strong>Network Link:</strong> Encrypted // Latency: 12ms</p>
-        <p><strong>System Diagnostics:</strong> <span style="color: #0f0;">NOMINAL</span></p>
-        <p><strong>Clearance Reminder:</strong> Accessing Level 6+ data requires biometic re-authentication.</p>
-        <p><em>[Settings below are non-functional placeholders]</em></p>
-        <p><input type="checkbox" id="setting1" checked disabled> <label for="setting1">Enable Real-time Threat Matrix</label></p>
-        <p><input type="checkbox" id="setting2" disabled> <label for="setting2">Activate Predictive Analysis Module</label></p>
-      </section>
+        function formatTimestamp(date) {
+            const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+            // Manually set the date part to April 01, 2025 for consistency with prompt requirement
+            const displayDate = new Date(date);
+            displayDate.setFullYear(2025);
+            displayDate.setMonth(3); // April is month 3 (0-indexed)
+            displayDate.setDate(1);
+            return displayDate.toLocaleString('en-US', options);
+        }
 
-    </div> <!-- /.content -->
+        function scrollToBottom() {
+            // Use requestAnimationFrame for potentially smoother scrolling
+            requestAnimationFrame(() => {
+                 chatWindow.scrollTop = chatWindow.scrollHeight;
+            });
+        }
 
-  </div> <!-- /#dossier-interface -->
+        function displayMessage(text, sender, skipAnimation = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', sender === 'user' ? 'user-message' : 'bot-message');
+            messageDiv.setAttribute('role', 'listitem'); // For accessibility
 
+            const contentDiv = document.createElement('div');
+            contentDiv.classList.add('message-content');
+            contentDiv.textContent = text; // Use textContent for security
+
+            const timestampSpan = document.createElement('span');
+            timestampSpan.classList.add('timestamp');
+            timestampSpan.textContent = formatTimestamp(new Date());
+
+            messageDiv.appendChild(contentDiv);
+            messageDiv.appendChild(timestampSpan);
+
+             if (skipAnimation) {
+                 messageDiv.style.opacity = 1;
+                 messageDiv.style.transform = 'translateY(0)';
+            }
+
+            chatWindow.appendChild(messageDiv);
+            updateConversationContext(sender, text);
+            scrollToBottom();
+            return messageDiv; // Return for potential modification (like adding typing cursor)
+        }
+
+        function displayTypingIndicator() {
+            if (document.querySelector('.typing-indicator')) return; // Already exists
+
+            isBotTyping = true;
+            toggleInput(false); // Disable input
+
+            const indicatorDiv = document.createElement('div');
+            indicatorDiv.classList.add('typing-indicator');
+            indicatorDiv.setAttribute('aria-label', `${botName} is typing`);
+            indicatorDiv.setAttribute('role', 'status');
+
+            const thinkingSpan = document.createElement('span');
+            thinkingSpan.textContent = `${botName} is thinking`;
+            indicatorDiv.appendChild(thinkingSpan);
+
+
+            for (let i = 0; i < 3; i++) {
+                const dotSpan = document.createElement('span');
+                dotSpan.classList.add('dot');
+                indicatorDiv.appendChild(dotSpan);
+            }
+
+            chatWindow.appendChild(indicatorDiv);
+            scrollToBottom();
+        }
+
+        function removeTypingIndicator() {
+             const indicator = chatWindow.querySelector('.typing-indicator');
+             if (indicator) {
+                 indicator.remove();
+             }
+             isBotTyping = false;
+             // Don't re-enable input here, wait until bot message is fully typed
+        }
+
+        function typeBotMessage(text) {
+            removeTypingIndicator();
+
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', 'bot-message');
+            messageDiv.setAttribute('role', 'listitem');
+
+            const contentDiv = document.createElement('div');
+            contentDiv.classList.add('message-content');
+            // Add initial hidden character for consistent height calculation if needed
+            contentDiv.innerHTML = '&nbsp;';
+
+            const timestampSpan = document.createElement('span');
+            timestampSpan.classList.add('timestamp');
+            // Timestamp will be set at the end
+
+            const cursorSpan = document.createElement('span');
+            cursorSpan.classList.add('typing-cursor');
+            contentDiv.appendChild(cursorSpan); // Add cursor initially
+
+            messageDiv.appendChild(contentDiv);
+            messageDiv.appendChild(timestampSpan); // Add timestamp holder
+
+            chatWindow.appendChild(messageDiv);
+            scrollToBottom(); // Scroll once initially
+
+            let charIndex = 0;
+            contentDiv.innerHTML = ''; // Clear the placeholder space
+
+            function typeCharacter() {
+                if (charIndex < text.length) {
+                    contentDiv.innerHTML = text.substring(0, charIndex + 1) + '<span class="typing-cursor"></span>';
+                    charIndex++;
+                    scrollToBottom(); // Scroll as text grows, potentially throttle this if performance suffers
+                    const randomDelay = Math.floor(Math.random() * (100 - 30 + 1)) + 30; // 30-100ms delay
+                    setTimeout(typeCharacter, randomDelay);
+                } else {
+                    // Typing finished
+                    contentDiv.innerHTML = text; // Remove cursor
+                    timestampSpan.textContent = formatTimestamp(new Date()); // Add final timestamp
+                    updateConversationContext('bot', text);
+                    addFeedbackButtons(messageDiv); // Add feedback after message is complete
+                    toggleInput(true); // Re-enable input
+                    scrollToBottom(); // Final scroll
+                }
+            }
+
+            // Slight delay before starting typing for effect
+            setTimeout(typeCharacter, 300);
+        }
+
+
+        function addFeedbackButtons(messageDiv) {
+             // Check if the last message was already a feedback response
+            const lastBotMsgData = conversationContext.filter(m => m.sender === 'bot').pop();
+             if (lastBotMsgData && Object.values(responses.feedback_yes).concat(Object.values(responses.feedback_no)).includes(lastBotMsgData.text)) {
+                 return; // Don't add feedback buttons to feedback responses
+            }
+
+            const feedbackContainer = document.createElement('div');
+            feedbackContainer.classList.add('feedback-container');
+
+            const yesButton = document.createElement('button');
+            yesButton.textContent = '👍 Helpful';
+            yesButton.classList.add('feedback-button');
+            yesButton.dataset.feedback = 'yes';
+
+            const noButton = document.createElement('button');
+            noButton.textContent = '👎 Not helpful';
+            noButton.classList.add('feedback-button');
+            noButton.dataset.feedback = 'no';
+
+            feedbackContainer.appendChild(yesButton);
+            feedbackContainer.appendChild(noButton);
+
+            // Append directly to chatWindow, but visually associated with the last bot message
+            chatWindow.appendChild(feedbackContainer);
+            scrollToBottom();
+        }
+
+
+        function handleFeedback(event) {
+            const target = event.target;
+            if (target.classList.contains('feedback-button')) {
+                const feedbackType = target.dataset.feedback;
+                const container = target.closest('.feedback-container');
+
+                if (container) {
+                    container.remove(); // Remove buttons immediately
+                }
+
+                let followUpResponsePool;
+                if (feedbackType === 'yes') {
+                    followUpResponsePool = responses.feedback_yes;
+                } else {
+                    followUpResponsePool = responses.feedback_no;
+                }
+
+                const botResponse = getRandomResponse(followUpResponsePool);
+                simulateBotResponse(botResponse); // Use simulation for consistency
+            }
+        }
+
+
+        function getRandomResponse(pool) {
+            return pool[Math.floor(Math.random() * pool.length)];
+        }
+
+        function getBotResponse(userInputText) {
+            const lowerInput = userInputText.toLowerCase().trim();
+
+            // Simple keyword detection (can be expanded)
+            if (lowerInput.includes('hello') || lowerInput.includes('hi') || lowerInput.includes('hey')) {
+                return getRandomResponse(responses.greetings);
+            } else if (lowerInput.includes('bye') || lowerInput.includes('goodbye') || lowerInput.includes('see ya')) {
+                return getRandomResponse(responses.farewell);
+            } else if (lowerInput.includes('help') || lowerInput.includes('assist') || lowerInput.includes('what can you do')) {
+                return getRandomResponse(responses.help);
+            }
+
+            // Basic Context Check: Avoid immediate repetition
+            const lastBotMessage = conversationContext.filter(m => m.sender === 'bot').pop()?.text;
+            let potentialResponse;
+            let tries = 0;
+            do {
+                potentialResponse = getRandomResponse(responses.default);
+                tries++;
+            } while (potentialResponse === lastBotMessage && tries < 5); // Try up to 5 times to avoid repeat
+
+            return potentialResponse;
+        }
+
+        function simulateBotResponse(predefinedResponse = null) {
+            displayTypingIndicator();
+
+            // Simulate "thinking" time
+            const thinkingTime = Math.floor(Math.random() * (1500 - 500 + 1)) + 500; // 0.5s to 1.5s
+
+            setTimeout(() => {
+                const botResponseText = predefinedResponse || getBotResponse(conversationContext.findLast(m => m.sender === 'user')?.text || "");
+                typeBotMessage(botResponseText);
+            }, thinkingTime);
+        }
+
+        function handleUserInput() {
+            const text = userInput.value.trim();
+            if (text && !isBotTyping) {
+                // Remove any existing feedback buttons before user sends new message
+                 const existingFeedback = chatWindow.querySelector('.feedback-container');
+                 if (existingFeedback) {
+                     existingFeedback.remove();
+                 }
+
+                displayMessage(text, 'user');
+                userInput.value = '';
+                autoResizeTextarea(); // Reset height after clearing
+                simulateBotResponse();
+            }
+             userInput.focus(); // Keep focus on input
+        }
+
+        function handleKeyPress(event) {
+            // Send on Enter, but allow Shift+Enter for new lines
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault(); // Prevent default newline behavior
+                handleUserInput();
+            }
+        }
+
+        function autoResizeTextarea() {
+            // Reset height to auto to shrink if text is deleted
+            userInput.style.height = 'auto';
+            // Set height based on scroll height, respecting max-height from CSS
+            userInput.style.height = `${userInput.scrollHeight}px`;
+        }
+
+        function toggleInput(enabled) {
+            userInput.disabled = !enabled;
+            sendButton.disabled = !enabled;
+             if (!enabled) {
+                 userInput.placeholder = `${botName} is responding...`;
+             } else {
+                 userInput.placeholder = "Type your message...";
+             }
+        }
+
+        function updateConversationContext(sender, text) {
+            conversationContext.push({ sender, text });
+            // Keep only the last, say, 6 messages for context (3 user, 3 bot)
+            if (conversationContext.length > 6) {
+                conversationContext.shift(); // Remove the oldest message
+            }
+        }
+
+         // --- Particle Background ---
+        function createParticles(count = 25) {
+            for (let i = 0; i < count; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('particle');
+
+                // Random initial position and animation parameters
+                const startX = Math.random() * 100;
+                const startY = Math.random() * 100;
+                const endX = (Math.random() - 0.5) * 2 * 50; // Random horizontal distance +/- 50px
+                const endY = (Math.random() - 0.5) * 2 * 50; // Random vertical distance +/- 50px
+                const duration = 15 + Math.random() * 10; // 15-25 seconds duration
+                const delay = Math.random() * 15; // Stagger start times up to 15s
+
+                particle.style.left = `${startX}%`;
+                particle.style.top = `${startY}%`;
+                particle.style.setProperty('--tx', `${endX}px`);
+                particle.style.setProperty('--ty', `${endY}px`);
+                particle.style.animationDuration = `${duration}s`;
+                particle.style.animationDelay = `-${delay}s`; // Negative delay starts partway through animation
+
+                particleContainer.appendChild(particle);
+            }
+        }
+
+
+        // --- Initialization ---
+        function initializeChat() {
+            // Initial greeting from the bot
+            const initialGreeting = getRandomResponse(responses.greetings);
+            // Use a slight delay for the greeting to allow page render
+            setTimeout(() => {
+                 // Display initial message without typing effect for faster start
+                 // displayMessage(initialGreeting, 'bot', true); // Option 1: Skip typing
+                 // toggleInput(true); // Enable immediately if skipping typing
+
+                 // Option 2: Use typing effect for initial message
+                isBotTyping = true; // Mark as typing initially
+                toggleInput(false); // Keep input disabled
+                 typeBotMessage(initialGreeting);
+            }, 500); // 0.5s delay
+
+            // Set up event listeners
+            sendButton.addEventListener('click', handleUserInput);
+            userInput.addEventListener('keydown', handleKeyPress);
+            userInput.addEventListener('input', autoResizeTextarea); // Handle dynamic height
+             // Use event delegation for feedback buttons
+             chatWindow.addEventListener('click', handleFeedback);
+
+            // Create background particles
+            createParticles();
+
+            userInput.focus(); // Focus input on load
+        }
+
+        // Start the chatbot when the DOM is ready
+        document.addEventListener('DOMContentLoaded', initializeChat);
+
+    </script>
 </body>
 </html>
