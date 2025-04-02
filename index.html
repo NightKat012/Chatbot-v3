@@ -1,12 +1,549 @@
-            <!-- ... (rest of your input-area div) ... -->
-            <button id="send-button" aria-label="Send message">Send</button>
-        </div>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dossier Interface // Codename: Chronos</title>
+  <style>
+    /* CSS Reset & Base */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      /* Dark Theme (Default) */
+      --bg-primary: #0d0f12; /* Deep black-blue */
+      --bg-secondary: #1a1c20; /* Dark panel */
+      --text-primary: #0f0; /* Bright green */
+      --text-secondary: #9f9; /* Lighter green */
+      --accent-primary: #0f0; /* Green accent */
+      --accent-secondary: #0a0; /* Darker green */
+      --border-color: #2f2; /* Green border */
+      --shadow-color: rgba(0, 255, 0, 0.5); /* Green glow */
+      --tab-inactive-bg: #1f1f1f;
+      --tab-active-bg: var(--accent-primary);
+      --tab-active-text: var(--bg-primary);
+      --scrollbar-thumb: var(--accent-secondary);
+      --scrollbar-track: var(--bg-secondary);
+      --scanline-opacity: 0.08;
+      --transition-speed: 0.4s;
+    }
+
+    /* Hidden Inputs - Positioned off-screen but accessible */
+    .hidden-input {
+      position: absolute;
+      opacity: 0;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+      pointer-events: none; /* Important for labels to work */
+    }
+
+    body {
+      font-family: 'Consolas', 'Monaco', 'Lucida Console', monospace;
+      background-color: #000; /* Fallback */
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 20px;
+      overflow: hidden; /* Hide body scrollbars if interface takes full screen */
+    }
+
+    /* Main Interface Container */
+    #dossier-interface {
+      width: 100%;
+      max-width: 1000px;
+      height: calc(100vh - 40px); /* Full viewport height minus padding */
+      max-height: 800px;
+      display: grid;
+      grid-template-rows: auto 1fr; /* Header row (tabs+toggle), Content row */
+      grid-template-columns: 1fr; /* Single column layout */
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      border: 2px solid var(--border-color);
+      border-radius: 5px;
+      box-shadow: 0 0 15px var(--shadow-color), inset 0 0 10px rgba(0,0,0,0.5);
+      position: relative;
+      overflow: hidden; /* Contains scanlines and content */
+      transition:
+        background-color var(--transition-speed) ease,
+        color var(--transition-speed) ease,
+        border-color var(--transition-speed) ease,
+        box-shadow var(--transition-speed) ease;
+    }
+
+    /* --- Scanline & Flicker Effect --- */
+    #dossier-interface::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(to bottom, rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+        background-size: 100% 4px, 3px 100%;
+        z-index: 1;
+        pointer-events: none;
+        animation: scanline 10s linear infinite, flicker 0.05s infinite alternate;
+    }
+
+    @keyframes scanline {
+      from { background-position: 0 0; }
+      to { background-position: 0 100%; }
+    }
+
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.95; }
+    }
+
+
+    /* --- Header Area (Tabs + Theme Toggle) --- */
+    .header-area {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 15px;
+      background-color: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      position: relative;
+      z-index: 3; /* Above scanlines and content */
+      flex-wrap: wrap; /* Allow wrapping on small screens */
+    }
+
+    /* Tab Navigation */
+    .tabs {
+      display: flex;
+      gap: 5px;
+    }
+
+    .tab {
+      display: inline-block;
+      padding: 8px 15px;
+      background-color: var(--tab-inactive-bg);
+      color: var(--text-secondary);
+      border: 1px solid var(--accent-secondary);
+      border-bottom: none;
+      border-radius: 3px 3px 0 0;
+      cursor: pointer;
+      transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
+      user-select: none; /* Prevent text selection on click */
+      font-size: 0.9em;
+      position: relative; /* For potential ::before/::after indicators */
+    }
+
+    .tab:hover {
+      background-color: var(--accent-secondary);
+      color: var(--bg-primary);
+      text-shadow: 0 0 3px var(--bg-primary);
+    }
+
+    /* --- Theme Toggle --- */
+    .theme-toggle {
+      display: inline-block;
+      padding: 6px 12px;
+      border: 1px solid var(--accent-primary);
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 0.8em;
+      color: var(--accent-primary);
+      background-color: transparent;
+      transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
+      user-select: none;
+      margin-left: auto; /* Push to the right */
+    }
+
+    .theme-toggle:hover {
+      background-color: var(--accent-primary);
+      color: var(--bg-primary);
+    }
+
+    .theme-toggle::before {
+      content: "[";
+      margin-right: 3px;
+      opacity: 0.7;
+    }
+    .theme-toggle::after {
+      content: "]";
+      margin-left: 3px;
+      opacity: 0.7;
+    }
+
+    /* Theme Toggle State Text (Using adjacent sibling) */
+    #toggle-theme:not(:checked) + #dossier-interface .theme-toggle .theme-label::after {
+        content: "LIGHT MODE";
+    }
+    #toggle-theme:checked + #dossier-interface .theme-toggle .theme-label::after {
+        content: "DARK MODE";
+    }
+
+
+    /* --- Content Area --- */
+    .content {
+      padding: 20px;
+      overflow-y: auto; /* Enable scrolling for content */
+      position: relative;
+      z-index: 2; /* Above scanlines but below header */
+      /* Custom Scrollbar */
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    }
+
+    .content::-webkit-scrollbar {
+      width: 8px;
+    }
+    .content::-webkit-scrollbar-track {
+      background: var(--scrollbar-track);
+      border-radius: 4px;
+    }
+    .content::-webkit-scrollbar-thumb {
+      background-color: var(--scrollbar-thumb);
+      border-radius: 4px;
+      border: 1px solid var(--bg-secondary);
+    }
+
+    /* Section Styling */
+    .section {
+      display: none; /* Hide all sections by default */
+      opacity: 0;
+      animation: fadeIn 0.6s ease forwards;
+      text-shadow: 0 0 3px var(--shadow-color); /* Apply glow */
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(15px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .section h2 {
+      color: var(--accent-primary);
+      border-bottom: 1px dashed var(--accent-secondary);
+      padding-bottom: 5px;
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .section p, .section li, .section div {
+      margin-bottom: 10px;
+      line-height: 1.6;
+      color: var(--text-secondary); /* Use secondary text color for less emphasis */
+    }
+    .section strong {
+        color: var(--text-primary); /* Highlight key terms */
+    }
+
+    /* --- Tab Switching Logic --- */
+    #tab-profile:checked ~ #dossier-interface .content .profile,
+    #tab-logs:checked ~ #dossier-interface .content .logs,
+    #tab-evidence:checked ~ #dossier-interface .content .evidence,
+    #tab-settings:checked ~ #dossier-interface .content .settings {
+      display: block; /* Show the active section */
+    }
+
+    /* Highlight Active Tab */
+    #tab-profile:checked ~ #dossier-interface .header-area .tabs label[for="tab-profile"],
+    #tab-logs:checked ~ #dossier-interface .header-area .tabs label[for="tab-logs"],
+    #tab-evidence:checked ~ #dossier-interface .header-area .tabs label[for="tab-evidence"],
+    #tab-settings:checked ~ #dossier-interface .header-area .tabs label[for="tab-settings"] {
+      background-color: var(--tab-active-bg);
+      color: var(--tab-active-text);
+      border-color: var(--accent-primary);
+      font-weight: bold;
+      text-shadow: none;
+    }
+
+    /* --- Collapsible Log Entries (<details>) --- */
+    details {
+      background-color: rgba(0, 255, 0, 0.05); /* Subtle background */
+      border: 1px solid var(--accent-secondary);
+      border-radius: 3px;
+      margin-bottom: 10px;
+      transition: background-color var(--transition-speed) ease;
+    }
+
+    details[open] {
+       background-color: rgba(0, 255, 0, 0.1);
+    }
+
+    summary {
+      padding: 10px 15px;
+      cursor: pointer;
+      color: var(--text-primary);
+      font-weight: bold;
+      list-style: none; /* Remove default marker */
+      position: relative;
+      transition: background-color var(--transition-speed) ease;
+    }
+
+    summary::-webkit-details-marker { display: none; } /* Hide marker in WebKit */
+    summary::marker { display: none; } /* Hide marker in Firefox */
+
+    summary::before {
+      content: '+'; /* Collapsed state indicator */
+      display: inline-block;
+      width: 1em;
+      margin-right: 8px;
+      font-weight: bold;
+      color: var(--accent-primary);
+      transition: transform 0.2s ease-in-out;
+    }
+
+    details[open] > summary::before {
+      content: '-'; /* Expanded state indicator */
+      transform: rotate(90deg);
+    }
+
+    details > div { /* Content wrapper inside details */
+      padding: 0 15px 15px 15px;
+      border-top: 1px dashed var(--accent-secondary);
+      margin-top: 10px;
+      overflow: hidden; /* Needed for smooth-ish animation */
+    }
+
+    /* Add a simple fade-in for details content */
+    details > div {
+        animation: fadeInDetails 0.5s ease-out;
+    }
+
+    @keyframes fadeInDetails {
+        from { opacity: 0; max-height: 0; }
+        to { opacity: 1; max-height: 500px; } /* Adjust max-height as needed */
+    }
+
+
+    /* --- Theme Switching Logic --- */
+    #toggle-theme:checked + #dossier-interface {
+      /* Light Theme Variables */
+      --bg-primary: #f0f4f8; /* Light grey-blue */
+      --bg-secondary: #ffffff; /* White panel */
+      --text-primary: #1a1f3a; /* Dark blue */
+      --text-secondary: #4a4f6a; /* Medium grey-blue */
+      --accent-primary: #0056b3; /* Standard blue */
+      --accent-secondary: #003d80; /* Darker blue */
+      --border-color: #a0b0c0; /* Grey border */
+      --shadow-color: rgba(0, 86, 179, 0.3); /* Blue glow */
+      --tab-inactive-bg: #e0e4e8;
+      --scanline-opacity: 0.02; /* Much lighter scanline */
+      text-shadow: none; /* Remove text glow in light mode */
+    }
+    #toggle-theme:checked + #dossier-interface .section {
+        text-shadow: none; /* Ensure section text glow is also removed */
+    }
+
+    /* --- Responsive Design --- */
+    @media (max-width: 768px) {
+      body {
+        padding: 10px; /* Less padding on small screens */
+      }
+      #dossier-interface {
+        height: calc(100vh - 20px);
+        max-height: none; /* Allow full height */
+        grid-template-rows: auto auto 1fr; /* Header, Tabs, Content */
+      }
+      .header-area {
+          flex-direction: column;
+          align-items: flex-start; /* Align items to start */
+          padding-bottom: 0; /* Remove bottom padding as tabs are separate now */
+      }
+      .tabs {
+          order: 2; /* Move tabs below toggle */
+          width: 100%;
+          padding-top: 10px; /* Space between toggle and tabs */
+          border-top: 1px solid var(--border-color);
+          margin-top: 10px;
+          justify-content: space-around; /* Distribute tabs */
+      }
+      .tab {
+          flex-grow: 1; /* Make tabs fill width */
+          text-align: center;
+          font-size: 0.85em;
+          padding: 10px 5px;
+      }
+      .theme-toggle {
+          order: 1; /* Keep toggle at top */
+          margin-left: 0; /* Reset margin */
+          align-self: flex-end; /* Push to right */
+          margin-bottom: 10px; /* Space below toggle */
+      }
+       .content {
+           padding: 15px;
+       }
+       .section h2 {
+           font-size: 1.1em;
+       }
+       .section p, .section li, .section div {
+           font-size: 0.9em;
+       }
+    }
+
+     @media (max-width: 480px) {
+        .tab {
+            font-size: 0.75em;
+            padding: 8px 3px;
+        }
+        .theme-toggle {
+            font-size: 0.7em;
+            padding: 5px 8px;
+        }
+        .content {
+            padding: 10px;
+        }
+        details {
+            margin-bottom: 8px;
+        }
+        summary {
+            padding: 8px 10px;
+            font-size: 0.9em;
+        }
+        details > div {
+            padding: 0 10px 10px 10px;
+            margin-top: 8px;
+        }
+     }
+
+  </style>
+</head>
+<body>
+
+  <!-- Hidden Inputs for State Management -->
+  <input type="radio" name="section" id="tab-profile" class="hidden-input" checked>
+  <input type="radio" name="section" id="tab-logs" class="hidden-input">
+  <input type="radio" name="section" id="tab-evidence" class="hidden-input">
+  <input type="radio" name="section" id="tab-settings" class="hidden-input">
+  <input type="checkbox" id="toggle-theme" class="hidden-input">
+
+  <!-- Dossier Interface -->
+  <div id="dossier-interface">
+
+    <!-- Header: Contains Tabs and Theme Toggle -->
+    <div class="header-area">
+      <nav class="tabs">
+        <label for="tab-profile" class="tab">Profile</label>
+        <label for="tab-logs" class="tab">Logs</label>
+        <label for="tab-evidence" class="tab">Evidence</label>
+        <label for="tab-settings" class="tab">Settings</label>
+      </nav>
+
+      <label for="toggle-theme" class="theme-toggle">
+        <span class="theme-label"> <!-- Span to target text content change --></span>
+      </label>
     </div>
 
-    <!-- REMOVE THE OLD <script> block that contained all the JS -->
+    <!-- Main Content Area -->
+    <div class="content">
 
-    <!-- ADD THIS LINE -->
-    <script src="main.js" defer></script>
+      <!-- Profile Section -->
+      <section id="profile" class="section profile">
+        <h2>Agent Profile</h2>
+        <p><strong>Agent ID:</strong> RX-789 "Specter"</p>
+        <p><strong>Assigned Name:</strong> Riley Carter</p>
+        <p><strong>Security Clearance:</strong> Level 5 (Omega Protocol)</p>
+        <p><strong>Affiliation:</strong> Chronos Division</p>
+        <p><strong>Date Activated:</strong> March 15, 2023</p>
+        <p><strong>Current Base:</strong> Undisclosed (Mobile Unit 'Tempus')</p>
+        <p><strong>Status:</strong> <span style="color: #0f0;">ACTIVE</span></p>
+        <p><strong>Primary Skills:</strong> Temporal Anomaly Analysis, Covert Operations, Data Encryption/Decryption</p>
+        <p><strong>Last Sync:</strong> April 01, 2025 - 08:00 ZULU</p>
+      </section>
+
+      <!-- Logs Section -->
+      <section id="logs" class="section logs">
+        <h2>Operational Logs</h2>
+        <details>
+          <summary>Log Entry #073 - 04/01/2025 // 07:45 ZULU</summary>
+          <div>
+            <p><strong>Subject:</strong> Mission 'Echo Bloom' - Phase 1 Initiation</p>
+            <p>Infiltrated designated nexus point identified as 'Old Library'. Minimal temporal displacement detected upon entry. Ambient chroniton levels nominal. Initial sensor sweep indicates target artifact is nearby. Proceeding with caution.</p>
+            <p><em>Analyst Note: Cross-reference library blueprints with known temporal weak points.</em></p>
+          </div>
+        </details>
+        <details>
+          <summary>Log Entry #072 - 03/31/2025 // 18:20 ZULU</summary>
+          <div>
+            <p><strong>Subject:</strong> Pre-Mission Briefing - 'Echo Bloom'</p>
+            <p>Received final parameters for Operation Echo Bloom. Objective: Secure anomalous artifact exhibiting localized time dilation effects. Potential hostiles: Unknown temporal entity designated 'The Curator'. Extraction window: 12 hours post-insertion.</p>
+            <p><em>Equipment Check: Chroniton Stabilizer - Calibrated. Stealth Field - Optimal. Emergency Temporal Beacon - Armed.</em></p>
+          </div>
+        </details>
+         <details>
+          <summary>Log Entry #071 - 03/28/2025 // 11:00 ZULU</summary>
+          <div>
+            <p><strong>Subject:</strong> Anomaly Analysis - Sector Gamma</p>
+            <p>Processed sensor data from Sector Gamma drone sweep. Detected faint temporal signature matching profile of 'Echo Bloom' target. Signature origin triangulated to coordinates [REDACTED]. Recommend immediate reconnaissance.</p>
+            <p><em>Risk Assessment: Moderate. Probability of temporal feedback loop: 15%.</em></p>
+          </div>
+        </details>
+        <details>
+          <summary>Log Entry #070 - 03/25/2025 // 09:30 ZULU</summary>
+          <div>
+            <p><strong>Subject:</strong> Equipment Maintenance</p>
+            <p>Routine diagnostic and maintenance performed on Mobile Unit 'Tempus' systems. Temporal drive recalibrated. Cloaking systems optimized. All systems green.</p>
+          </div>
+        </details>
+      </section>
+
+      <!-- Evidence Section -->
+      <section id="evidence" class="section evidence">
+        <h2>Collected Evidence / Artifacts</h2>
+        <div>
+            <p><strong>Item ID:</strong> EV-042a</p>
+            <p><strong>Designation:</strong> Tarnished Pocket Watch</p>
+            <p><strong>Date Acquired:</strong> March 18, 2024</p>
+            <p><strong>Origin Sector:</strong> Alpha-Prime (Victorian Era Anomaly)</p>
+            <p><strong>Notes:</strong> Emits faint chroniton radiation. Hands frozen at 11:58. Casing shows unusual metallurgical composition. Currently secured in stasis field.</p>
+        </div>
+        <hr style="border: 0; border-top: 1px dashed var(--accent-secondary); margin: 15px 0;">
+        <div>
+            <p><strong>Item ID:</strong> EV-031b</p>
+            <p><strong>Designation:</strong> Coded Datapad Fragment</p>
+            <p><strong>Date Acquired:</strong> January 05, 2025</p>
+            <p><strong>Origin Sector:</strong> Neo-Kyoto Arcology (2142 Anomaly)</p>
+            <p><strong>Notes:</strong> Fragment recovered from rogue AI core. Partial decryption revealed references to 'The Curator' and 'Temporal Weaving'. Encryption level exceeds standard protocols. Further analysis required.</p>
+        </div>
+         <hr style="border: 0; border-top: 1px dashed var(--accent-secondary); margin: 15px 0;">
+        <div>
+            <p><strong>Item ID:</strong> EV-045c</p>
+            <p><strong>Designation:</strong> Fossilized Leaf (Unknown Species)</p>
+            <p><strong>Date Acquired:</strong> February 22, 2025</p>
+            <p><strong>Origin Sector:</strong> Prehistoric Anomaly (Designation 'Eden Prime')</p>
+            <p><strong>Notes:</strong> Exhibits minor temporal displacement properties. Cellular structure appears stable despite age paradox. Potential link to 'Echo Bloom' artifact. Biological analysis pending.</p>
+        </div>
+      </section>
+
+      <!-- Settings Section -->
+      <section id="settings" class="section settings">
+        <h2>Interface Settings</h2>
+        <p><strong>Display Mode:</strong> Standard // Tactical Overlay [INACTIVE]</p>
+        <p><strong>Data Stream Filter:</strong> Chronos Division // All Sources [RESTRICTED]</p>
+        <p><strong>Audio Feedback:</strong> Enabled // <label style="cursor: pointer; text-decoration: underline;">Disable</label></p>
+        <p><strong>Visual Theme:</strong> Current: <span id="theme-indicator">Auto</span> (Use Toggle)</p>
+        <p><strong>Security Protocol:</strong> Omega Active</p>
+        <p><strong>Network Link:</strong> Encrypted // Latency: 12ms</p>
+        <p><strong>System Diagnostics:</strong> <span style="color: #0f0;">NOMINAL</span></p>
+        <p><strong>Clearance Reminder:</strong> Accessing Level 6+ data requires biometic re-authentication.</p>
+        <p><em>[Settings below are non-functional placeholders]</em></p>
+        <p><input type="checkbox" id="setting1" checked disabled> <label for="setting1">Enable Real-time Threat Matrix</label></p>
+        <p><input type="checkbox" id="setting2" disabled> <label for="setting2">Activate Predictive Analysis Module</label></p>
+      </section>
+
+    </div> <!-- /.content -->
+
+  </div> <!-- /#dossier-interface -->
 
 </body>
 </html>
